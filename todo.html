@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Project to-do list</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #eef2f6;
+    --surface: #ffffff;
+    --ink: #17212e;
+    --muted: #5b6b7e;
+    --line: #d6dee8;
+    --accent: #1f5eff;
+    --accent-soft: #dfe8ff;
+    --done: #8d9aab;
+    --blob-a: rgba(31, 94, 255, 0.35);
+    --blob-b: rgba(255, 159, 28, 0.35);
+    --blob-c: rgba(0, 184, 148, 0.30);
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #10161f;
+      --surface: #18212d;
+      --ink: #e8eef6;
+      --muted: #9aa9bb;
+      --line: #2a3646;
+      --accent: #7c9dff;
+      --accent-soft: #24324d;
+      --done: #66758a;
+      --blob-a: rgba(124, 157, 255, 0.28);
+      --blob-b: rgba(255, 170, 60, 0.22);
+      --blob-c: rgba(40, 210, 170, 0.20);
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #10161f; --surface: #18212d; --ink: #e8eef6; --muted: #9aa9bb;
+    --line: #2a3646; --accent: #7c9dff; --accent-soft: #24324d; --done: #66758a;
+    --blob-a: rgba(124,157,255,.28); --blob-b: rgba(255,170,60,.22); --blob-c: rgba(40,210,170,.20);
+    color-scheme: dark;
+  }
+
+  :root { box-sizing: border-box; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+  *, *::before, *::after { box-sizing: inherit; }
+  html { scroll-padding-top: env(safe-area-inset-top, 0px); }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "Bricolage Grotesque", "Segoe UI", system-ui, -apple-system, sans-serif;
+    font-size: 1.05rem;
+    line-height: 1.5;
+  }
+
+  header {
+    position: relative;
+    overflow: hidden;
+    padding: 4.5rem 1.25rem 3rem;
+  }
+  /* soft overlapping gaussians, a nod to splatting */
+  header::before {
+    content: "";
+    position: absolute;
+    inset: -40% -10% -20% -10%;
+    background:
+      radial-gradient(closest-side at 22% 40%, var(--blob-a), transparent),
+      radial-gradient(closest-side at 70% 30%, var(--blob-b), transparent),
+      radial-gradient(closest-side at 55% 80%, var(--blob-c), transparent);
+    filter: blur(8px);
+    z-index: 0;
+  }
+  .wrap { max-width: 46rem; margin: 0 auto; position: relative; z-index: 1; }
+  h1 {
+    font-size: clamp(2.6rem, 8vw, 4.4rem);
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    line-height: 0.95;
+    margin: 0 0 1.25rem;
+  }
+  .summary { color: var(--muted); margin: 0 0 1rem; }
+  .bar { height: 10px; background: var(--surface); border-radius: 99px; overflow: hidden; border: 1px solid var(--line); }
+  .bar > span { display: block; height: 100%; width: 0; background: var(--accent); border-radius: 99px; transition: width .3s ease; }
+
+  main { padding: 0 1.25rem 4rem; }
+  section.person {
+    padding: 1.75rem 0;
+    border-top: 1px solid var(--line);
+  }
+  .person-head { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; margin-bottom: .75rem; }
+  h2 { font-size: 1.7rem; font-weight: 600; letter-spacing: -0.02em; margin: 0; }
+  .count { color: var(--muted); font-size: .95rem; white-space: nowrap; }
+  .count.complete { color: var(--accent); font-weight: 600; }
+
+  ul.tasks { list-style: none; margin: 0; padding: 0; }
+  ul.tasks > li { margin: .35rem 0; }
+  label.task {
+    display: flex; gap: .8rem; align-items: flex-start;
+    padding: .7rem .85rem;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    cursor: pointer;
+  }
+  label.task input {
+    appearance: none; -webkit-appearance: none;
+    flex: none;
+    width: 1.35rem; height: 1.35rem; margin: .1rem 0 0;
+    border: 2px solid var(--muted);
+    border-radius: 6px;
+    display: grid; place-content: center;
+    cursor: pointer;
+    background: transparent;
+  }
+  label.task input::after {
+    content: ""; width: .7rem; height: .4rem;
+    border-left: 3px solid #fff; border-bottom: 3px solid #fff;
+    transform: rotate(-45deg) translate(1px, -1px) scale(0);
+    transition: transform .15s ease;
+  }
+  label.task input:checked { background: var(--accent); border-color: var(--accent); }
+  label.task input:checked::after { transform: rotate(-45deg) translate(1px, -1px) scale(1); }
+  label.task input:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  label.task input:checked + .text { color: var(--done); text-decoration: line-through; text-decoration-thickness: 1px; }
+  .shared { color: var(--muted); font-size: .92rem; }
+
+  details.notes {
+    margin: .4rem 0 0 2.95rem;
+    font-size: .95rem;
+  }
+  details.notes summary { cursor: pointer; color: var(--accent); font-weight: 600; padding: .25rem 0; }
+  details.notes dl { margin: .5rem 0 0; }
+  details.notes dt { font-weight: 600; margin-top: .65rem; }
+  details.notes dd { margin: .1rem 0 0; color: var(--muted); }
+
+  section.contacts { padding-top: 2rem; border-top: 1px solid var(--line); }
+  .contact-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); gap: 1rem; margin-top: 1rem; }
+  .contact { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 1rem 1.1rem; }
+  .contact h3 { margin: 0 0 .5rem; font-size: 1.1rem; }
+  .contact p { margin: .2rem 0; font-size: .95rem; overflow-wrap: anywhere; }
+  .contact a { color: var(--accent); }
+
+  footer { color: var(--muted); font-size: .9rem; padding-top: 2rem; display: flex; flex-wrap: wrap; gap: .75rem 1.5rem; align-items: center; }
+  button.reset {
+    font: inherit; font-size: .9rem; color: var(--ink);
+    background: transparent; border: 1px solid var(--line); border-radius: 8px;
+    padding: .4rem .8rem; cursor: pointer;
+  }
+  button.reset:hover { border-color: var(--muted); }
+  button.reset:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .bar > span, label.task input::after { transition: none; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <h1>Who’s doing what</h1>
+    <p class="summary" id="summary">0 of 0 tasks done</p>
+    <div class="bar" aria-hidden="true"><span id="bar"></span></div>
+  </div>
+</header>
+
+<main>
+  <div class="wrap" id="people"></div>
+
+  <div class="wrap">
+    <section class="contacts">
+      <h2>AFAD contacts</h2>
+      <div class="contact-grid">
+        <div class="contact">
+          <h3>AFAD Ankara Provincial Directorate</h3>
+          <p>Phone: <a href="tel:+903122525979">0 (312) 252 59 79</a></p>
+          <p>Fax: 0 (312) 252 59 78</p>
+          <p>KEP: ankaraafad@hs01.kep.tr</p>
+        </div>
+        <div class="contact">
+          <h3>AFAD Headquarters</h3>
+          <p>Üniversiteler Mah. Dumlupınar Bulvarı No: 159, 06800 Çankaya/Ankara</p>
+          <p>Phone: <a href="tel:+903122582323">0 (312) 258 23 23</a></p>
+          <p>Fax: 0 (312) 258 20 82</p>
+          <p>Email: <a href="mailto:basin.halklailiskiler@afad.gov.tr">basin.halklailiskiler@afad.gov.tr</a></p>
+        </div>
+      </div>
+    </section>
+
+    <footer>
+      <span id="status" role="status"></span>
+      <button class="reset" id="reset" type="button">Clear all ticks</button>
+    </footer>
+  </div>
+</main>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import { getDatabase, ref, onValue, set, remove } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+
+  // Paste your Firebase web app config here. Until you do, ticks are saved in each browser only.
+  const firebaseConfig = {
+    apiKey: "PASTE_HERE",
+    authDomain: "PASTE_HERE",
+    databaseURL: "PASTE_HERE",
+    projectId: "PASTE_HERE",
+    appId: "PASTE_HERE"
+  };
+
+  // Edit this list to change the tasks. Give every task a unique id.
+  const PEOPLE = [
+    { name: "Berke", tasks: [
+      { id: "berke-1", text: "Ask family what’s missing in the current system, how it could be fixed, and what could be added" },
+      { id: "berke-2", text: "Ask acquaintances who were affected by the earthquake" }
+    ]},
+    { name: "Furkan", tasks: [
+      { id: "furkan-1", text: "Contact AFAD and ask whether there’s a need for something like this (contacts at the bottom)" },
+      { id: "furkan-2", text: "Online market demand research", shared: "with Kemal" }
+    ]},
+    { name: "Kemal", tasks: [
+      { id: "kemal-1", text: "Online market demand research", shared: "with Furkan" }
+    ]},
+    { name: "Dilara", tasks: [
+      { id: "dilara-1", text: "Ask her dad whether there’s a relevant use case for museums" },
+      { id: "dilara-2", text: "Find out if we know anyone at the municipality, and if so, ask them about the construction side" },
+      { id: "dilara-3", text: "Ask a psychiatrist in the earthquake region" }
+    ]},
+    { name: "Gökay", tasks: [
+      { id: "gokay-1", text: "Figure out how optimization and memory management in Gaussian splatting can be handled for our use case" },
+      { id: "gokay-2", text: "If we go mobile too: look into compression methods suited for mobile", notes: [
+        ["LightGaussian", "Prunes unnecessary Gaussians, distills SH coefficients and applies vector quantization; about 15× smaller with faster rendering."],
+        ["Compact 3D Gaussian (Lee et al.)", "A learnable mask cuts the number of Gaussians and geometry is stored via codebooks; improves both memory and speed."],
+        ["Compressed 3DGS (Niedermayr et al.)", "Sensitivity-aware vector clustering plus quantization; about 31× compression, aimed at fast rendering on low-power devices."],
+        ["HAC", "Entropy coding with hash-grid context on an anchor-based structure; very high compression (about 75×), ideal for download and storage but has a decoding cost."],
+        ["SPZ format (Niantic)", "Open-source file format, about 10× smaller than PLY with little quality loss; practical and ready to use right away."],
+        ["Self-Organizing Gaussians", "Arranges Gaussians into a 2D grid and compresses them with standard image codecs; benefits from hardware-accelerated decoding on mobile."]
+      ]}
+    ]}
+  ];
+
+  const KEY = "project-todo-ticks-v1";
+  const SHARED = !Object.values(firebaseConfig).some(v => v.includes("PASTE"));
+  const statusEl = document.getElementById("status");
+  const boxes = {};
+  let ticks = {};
+  let db = null;
+
+  if (SHARED) {
+    try {
+      db = getDatabase(initializeApp(firebaseConfig));
+      statusEl.textContent = "Connecting…";
+    } catch (e) {
+      statusEl.textContent = "The Firebase config is invalid. Check the values you pasted.";
+    }
+  } else {
+    try { ticks = JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) { ticks = {}; }
+    statusEl.textContent = "Ticks are saved in your browser only. Add a Firebase config to share them.";
+  }
+
+  function showError() {
+    statusEl.textContent = "Couldn’t reach the database. Check your connection and the database rules.";
+  }
+
+  function setTick(id, value) {
+    ticks[id] = value;
+    if (db) {
+      set(ref(db, "ticks/" + id), value).catch(showError);
+    } else {
+      try { localStorage.setItem(KEY, JSON.stringify(ticks)); } catch (e) {}
+    }
+    update();
+  }
+
+  function syncBoxes() {
+    Object.keys(boxes).forEach(id => { boxes[id].checked = !!ticks[id]; });
+  }
+
+  const root = document.getElementById("people");
+
+  function render() {
+    root.innerHTML = "";
+    PEOPLE.forEach(person => {
+      const sec = document.createElement("section");
+      sec.className = "person";
+      const head = document.createElement("div");
+      head.className = "person-head";
+      const h2 = document.createElement("h2");
+      h2.textContent = person.name;
+      const count = document.createElement("span");
+      count.className = "count";
+      head.append(h2, count);
+      sec.append(head);
+
+      const ul = document.createElement("ul");
+      ul.className = "tasks";
+      person.tasks.forEach(task => {
+        const li = document.createElement("li");
+        const label = document.createElement("label");
+        label.className = "task";
+        const box = document.createElement("input");
+        box.type = "checkbox";
+        box.checked = !!ticks[task.id];
+        boxes[task.id] = box;
+        box.addEventListener("change", () => setTick(task.id, box.checked));
+        const span = document.createElement("span");
+        span.className = "text";
+        span.textContent = task.text;
+        if (task.shared) {
+          const s = document.createElement("span");
+          s.className = "shared";
+          s.textContent = " (" + task.shared + ")";
+          span.append(s);
+        }
+        label.append(box, span);
+        li.append(label);
+
+        if (task.notes) {
+          const det = document.createElement("details");
+          det.className = "notes";
+          const sum = document.createElement("summary");
+          sum.textContent = "Methods to look at";
+          const dl = document.createElement("dl");
+          task.notes.forEach(([name, why]) => {
+            const dt = document.createElement("dt"); dt.textContent = name;
+            const dd = document.createElement("dd"); dd.textContent = why;
+            dl.append(dt, dd);
+          });
+          det.append(sum, dl);
+          li.append(det);
+        }
+        ul.append(li);
+      });
+      sec.append(ul);
+      person._count = count;
+      root.append(sec);
+    });
+    update();
+  }
+
+  function update() {
+    let total = 0, done = 0;
+    PEOPLE.forEach(person => {
+      const d = person.tasks.filter(t => ticks[t.id]).length;
+      const n = person.tasks.length;
+      total += n; done += d;
+      person._count.textContent = d === n ? "All done" : d + " of " + n + " done";
+      person._count.classList.toggle("complete", d === n);
+    });
+    document.getElementById("summary").textContent = done + " of " + total + " tasks done";
+    document.getElementById("bar").style.width = (total ? (done / total) * 100 : 0) + "%";
+  }
+
+  document.getElementById("reset").addEventListener("click", () => {
+    if (db) {
+      if (!confirm("This clears the ticks for everyone. Continue?")) return;
+      remove(ref(db, "ticks")).catch(showError);
+    } else {
+      ticks = {};
+      try { localStorage.removeItem(KEY); } catch (e) {}
+      syncBoxes();
+      update();
+    }
+  });
+
+  render();
+
+  if (db) {
+    onValue(ref(db, "ticks"), snapshot => {
+      ticks = snapshot.val() || {};
+      syncBoxes();
+      update();
+      statusEl.textContent = "Ticks are shared live with everyone who opens this page.";
+    }, showError);
+  }
+</script>
+</body>
+</html>
